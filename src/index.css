@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base document */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #f5f4ed;
+  color: #141413;
+  font-family: Georgia, 'Times New Roman', serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling — warm paper tones matching parchment */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d6d3c7 transparent;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background-color: #d6d3c7; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background-color: #b8b5a8; }
+
+/* Select element styling */
+select option {
+  background-color: #faf9f5;
+  color: #141413;
+}
+
+/* Smooth interactive transitions */
+button, a {
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+/* Monospace code styling */
+code, pre {
+  font-family: 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
+}
