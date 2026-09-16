@@ -1,0 +1,6 @@
+.npm-cache
+node_modules
+.git
+.env
+*.local
+dist
