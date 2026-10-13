@@ -30,8 +30,8 @@ const NAV_ICONS = [
 
 const CONVERSATIONS = [
   {
-    title: 'Python: top users by spend',
-    badge: 'Code',
+    title: 'NovaPay — Series B due diligence',
+    badge: 'Investment',
     path: '/',
     matchPaths: ['/', '/manager-view'],
   },

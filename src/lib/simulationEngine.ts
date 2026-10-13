@@ -1,5 +1,6 @@
 import { CHECKLIST_ITEMS, ChecklistItemData } from '../data/checklist'
 import { RESEARCH_CHECKLIST_ITEMS } from '../data/researchChecklist'
+import { LOAN_RISK_CHECKLIST_ITEMS, LOAN_RISK_RESPONSE_TEXT } from '../data/loanRiskChecklist'
 import { INVESTMENT_RESPONSE_PARAGRAPHS } from '../data/conversation'
 import { RESEARCH_RESPONSE_PARAGRAPHS } from '../data/researchConversation'
 import type { CalibrationProfile } from './calibrationProfile'
@@ -22,6 +23,19 @@ function paragraphsToMarkdown(paragraphs: Array<{ heading?: string | null; text:
  */
 export function getSimulatedResponse(prompt: string): string {
   const p = prompt.toLowerCase()
+
+  // 0. Credit risk / Loan portfolio repayment & recovery
+  if (
+    p.includes('loan') ||
+    p.includes('repayment') ||
+    p.includes('charge off') ||
+    p.includes('charged off') ||
+    p.includes('lending') ||
+    p.includes('delinquency') ||
+    p.includes('credit risk')
+  ) {
+    return LOAN_RISK_RESPONSE_TEXT
+  }
 
   // 1. NovaPay / Fintech due diligence
   if (p.includes('novapay') || (p.includes('series b') && p.includes('payment')) || (p.includes('embedded') && p.includes('smb'))) {
@@ -166,6 +180,25 @@ export function getSimulatedChecklist(
   profile?: CalibrationProfile
 ): GeneratedChecklist {
   const p = prompt.toLowerCase()
+
+  // 0. Credit risk / Loan portfolio repayment & recovery
+  if (
+    p.includes('loan') ||
+    p.includes('repayment') ||
+    p.includes('charge off') ||
+    p.includes('charged off') ||
+    p.includes('lending') ||
+    p.includes('delinquency') ||
+    p.includes('credit risk')
+  ) {
+    return {
+      calibration:
+        profile?.label && profile.label !== 'Strategic Analyst' && profile.label !== 'Calibrated Analyst'
+          ? profile.label
+          : 'Credit Risk Analyst — Portfolio Strategy',
+      items: LOAN_RISK_CHECKLIST_ITEMS,
+    }
+  }
 
   // NovaPay match
   if (p.includes('novapay') || (p.includes('series b') && p.includes('payment'))) {

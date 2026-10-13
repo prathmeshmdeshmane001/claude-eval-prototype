@@ -129,9 +129,10 @@ interface InputBarProps {
   isHighStakes: boolean
   onToggleHighStakes: () => void
   isLiveEngine: boolean
+  onSelectPrompt?: (text: string) => void
 }
 
-function InputBar({ value, onChange, onSubmit, disabled, isHighStakes, onToggleHighStakes, isLiveEngine }: InputBarProps) {
+function InputBar({ value, onChange, onSubmit, disabled, isHighStakes, onToggleHighStakes, isLiveEngine, onSelectPrompt }: InputBarProps) {
   const ref = useRef<HTMLTextAreaElement>(null)
 
   // Auto-resize
@@ -151,6 +152,33 @@ function InputBar({ value, onChange, onSubmit, disabled, isHighStakes, onToggleH
 
   return (
     <div className="flex-shrink-0 px-4 pb-4">
+      {!value && !disabled && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 px-1 text-xs font-serif">
+          <span className="text-[#87867f] text-[11px] whitespace-nowrap">Suggested prompts:</span>
+          <button
+            type="button"
+            onClick={() =>
+              onSelectPrompt?.(
+                'The business problem is to identify which loan characteristics are linked with weak repayment, then use those patterns to improve future lending decisions and prioritise recovery for active loans before they become charged off.'
+              )
+            }
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#f0eee6] hover:bg-[#e8e6dc] text-[#5e5d59] hover:text-[#141413] border border-[#e8e6dc] shadow-ring-subtle whitespace-nowrap transition-colors"
+          >
+            📊 Loan Characteristics & Recovery Strategy
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onSelectPrompt?.(
+                'Summarize the market opportunity and key risks for a potential Series B investment in NovaPay, an embedded payments startup targeting SMBs across Southeast Asia.'
+              )
+            }
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#f0eee6] hover:bg-[#e8e6dc] text-[#5e5d59] hover:text-[#141413] border border-[#e8e6dc] shadow-ring-subtle whitespace-nowrap transition-colors"
+          >
+            💼 NovaPay Series B Diligence
+          </button>
+        </div>
+      )}
       <div className={`bg-[#faf9f5] border rounded-2xl px-4 py-3 flex flex-col gap-2 transition-all duration-200 ${
         disabled
           ? 'border-[#e8e6dc] opacity-60'
@@ -242,7 +270,15 @@ export default function ConversationView({ scenario }: ConversationViewProps) {
     setApiError(null)
     setLivePrompt(prompt)
     setLiveResponse('')
-    setHighStakes(submittedHighStakes)
+
+    // Inherently high stakes domains (credit risk, loan portfolio, financial due diligence, clinical research)
+    const isInherentlyHighStakes =
+      /loan|repayment|charge[- ]off|charged[- ]off|delinquency|underwriting|credit risk|lending|dpd|cecl|dti|series [abc]|novapay|clinical|trial|investment|valuation/i.test(
+        prompt
+      )
+    const effectiveHighStakes = submittedHighStakes || isInherentlyHighStakes
+
+    setHighStakes(effectiveHighStakes)
     setConversationPhase('streaming')
 
     const baseProfile = userProfile ?? (scenario === 'investment' ? DEMO_INVESTMENT_PROFILE : DEMO_RESEARCH_PROFILE)
@@ -253,7 +289,7 @@ export default function ConversationView({ scenario }: ConversationViewProps) {
         setLiveResponse((prev) => prev + delta)
       )
 
-      if (submittedHighStakes) {
+      if (effectiveHighStakes) {
         setConversationPhase('generating_checklist')
         const { calibration, items } = await generateChecklist(prompt, fullResponse, profile)
         updateChecklistData(items, calibration)
@@ -270,9 +306,29 @@ export default function ConversationView({ scenario }: ConversationViewProps) {
   const handleSubmit = async () => {
     const prompt = inputDraft.trim()
     if (!prompt || isBusy) return
-    const submittedHighStakes = highStakesDraft
+    const isInherentlyHighStakes =
+      /loan|repayment|charge[- ]off|charged[- ]off|delinquency|underwriting|credit risk|lending|dpd|cecl|dti|series [abc]|novapay|clinical|trial|investment|valuation/i.test(
+        prompt
+      )
+    const submittedHighStakes = highStakesDraft || isInherentlyHighStakes
     setInputDraft('')
     await executeSubmission(prompt, submittedHighStakes)
+  }
+
+  const handleInputChange = (val: string) => {
+    setInputDraft(val)
+    if (
+      /loan|repayment|charge[- ]off|charged[- ]off|delinquency|underwriting|credit risk|lending/i.test(
+        val
+      )
+    ) {
+      if (!highStakesDraft) setHighStakesDraft(true)
+    }
+  }
+
+  const handleSelectPrompt = (promptText: string) => {
+    setInputDraft(promptText)
+    setHighStakesDraft(true)
   }
 
   const handleSwitchToDemoAndRetry = async () => {
@@ -363,12 +419,13 @@ export default function ConversationView({ scenario }: ConversationViewProps) {
 
             <InputBar
               value={inputDraft}
-              onChange={setInputDraft}
+              onChange={handleInputChange}
               onSubmit={handleSubmit}
               disabled={isBusy}
               isHighStakes={highStakesDraft}
               onToggleHighStakes={() => setHighStakesDraft((v) => !v)}
               isLiveEngine={isLiveEngine}
+              onSelectPrompt={handleSelectPrompt}
             />
           </div>
 

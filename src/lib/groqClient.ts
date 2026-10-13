@@ -147,7 +147,11 @@ CHECKLIST PRIORITIZATION LOGIC ("Priority directs attention"):
 CRITICAL CONTENT RULES:
 - "title": A short, orienting question framing the cognitive check.
 - "description": 2-3 sentences of SPECIFIC verification steps referencing the exact numbers, entities, or claims from the response text. Never write generic boilerplate.
-- "calibration": A concise expertise label matching the role and domain (e.g., "Business Analyst — Investment Research").
+- For loan / credit risk / lending domains:
+  * P1 (Truth) must test accounting/regulatory standards (e.g. GAAP/CECL charge-off definitions vs 30-89 DPD delinquency), vintage seasoning survival curves, and ECOA/CFPB Fair Lending disparate impact compliance.
+  * P2 (Completeness) must test endogenous interest-rate pricing bias vs root behavioral drivers (DTI, utilization), and collections triage distinguishing self-cure vs imminent roll-to-loss.
+  * P3 (Quality) must test macroeconomic cycle sensitivity / stress-testing.
+- "calibration": A concise expertise label matching the role and domain (e.g., "Credit Risk Analyst — Portfolio Strategy", "Business Analyst — Investment Research").
 
 Return ONLY a valid JSON object matching this schema:
 {

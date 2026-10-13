@@ -96,7 +96,9 @@ export function inferPromptSignals(
 
   // Domain detection
   let detectedDomain = 'General Strategy'
-  if (/novapay|series [abc]|fintech|payment|smb|arr|mrr|cagr|tam|valuation|investment|ebitda|margin/i.test(lower)) {
+  if (/loan|repayment|charge[- ]off|charged[- ]off|delinquency|underwriting|credit risk|lending|dpd|cecl|dti|vintage/i.test(lower)) {
+    detectedDomain = 'Credit Risk & Loan Portfolio Analytics'
+  } else if (/novapay|series [abc]|fintech|payment|smb|arr|mrr|cagr|tam|valuation|investment|ebitda|margin/i.test(lower)) {
     detectedDomain = 'Financial & Venture Analysis'
   } else if (/sleep|cognitive|deprivation|memory|clinical|trial|pubmed|biomarker|patient/i.test(lower)) {
     detectedDomain = 'Scientific & Clinical Research'
@@ -109,8 +111,8 @@ export function inferPromptSignals(
   // Factual density detection
   const numbersCount = (prompt.match(/\d+/g) || []).length
   const hasNamedEntity = /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+/.test(prompt)
-  const hasMetric = /\d+%|\$\d+|\bseries [abc]\b|cagr|tam|arr|mrr|ebitda/i.test(lower)
-  const hasConstraints = /(must|should|ensure|as of|for the purpose of|in the context of|specifically)/i.test(lower)
+  const hasMetric = /\d+%|\$\d+|\bseries [abc]\b|cagr|tam|arr|mrr|ebitda|dpd|dti|cecl|apr/i.test(lower)
+  const hasConstraints = /(must|should|ensure|as of|for the purpose of|in the context of|specifically|prioritise|prioritize|identify)/i.test(lower)
   const isVague = /^(tell me about|what is|explain|summarize|describe)\s+\w+$/i.test(prompt.trim())
 
   const factualDensity: 'low' | 'moderate' | 'high' =
@@ -199,4 +201,19 @@ export const DEMO_RESEARCH_PROFILE: CalibrationProfile = {
   promptSpecificity: 'novice',
   sessionCount: 18,
   lastUpdated: '2026-05-29T14:30:00Z',
+}
+
+export const DEMO_LOAN_RISK_PROFILE: CalibrationProfile = {
+  label: 'Credit Risk Analyst — Portfolio Strategy',
+  role: 'Credit Risk Analyst',
+  domainDepths: {
+    'credit-risk':         'expert',
+    'portfolio-strategy':  'expert',
+    'collections-recovery': 'practitioner',
+    'regulatory-cecl':     'practitioner',
+  },
+  verificationRigor: 'expert',
+  promptSpecificity: 'expert',
+  sessionCount: 24,
+  lastUpdated: '2026-06-01T10:00:00Z',
 }
