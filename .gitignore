@@ -3,3 +3,7 @@ dist/
 .env
 *.local
 .npm-cache/
+.vercel
+.env*
+.brag*
+brag*

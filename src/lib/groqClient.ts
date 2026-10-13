@@ -1,77 +1,80 @@
 /// <reference types="vite/client" />
 
 import type { CalibrationProfile } from './calibrationProfile'
+import { getGroqApiKey } from './apiKey'
+import { getSimulatedResponse, simulateStream, getSimulatedChecklist } from './simulationEngine'
+import type { GeneratedChecklist } from './api'
 
 const BASE_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const MODEL    = 'llama-3.3-70b-versatile'
-
-function apiKey(): string {
-  const k = (import.meta.env.VITE_GROQ_API_KEY as string | undefined)?.trim()
-  if (!k) throw new Error(
-    'VITE_GROQ_API_KEY is not set.\n' +
-    'Create prototype/.env with: VITE_GROQ_API_KEY=gsk_...\n' +
-    'Then restart the dev server.'
-  )
-  return k
-}
 
 /** Stream a chat completion. Calls onChunk for each text delta; resolves with full text. */
 export async function streamResponse(
   userPrompt: string,
   onChunk: (delta: string) => void
 ): Promise<string> {
-  const res = await fetch(BASE_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful, knowledgeable assistant. Give clear, well-structured responses. For code tasks prefer Python with a brief explanation before the code. Be specific and practical.',
-        },
-        { role: 'user', content: userPrompt },
-      ],
-      stream: true,
-    }),
-  })
+  const key = getGroqApiKey()
 
-  if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`)
-
-  const reader  = res.body!.getReader()
-  const decoder = new TextDecoder()
-  let fullText  = ''
-
-  outer: while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    for (const line of decoder.decode(value, { stream: true }).split('\n')) {
-      if (!line.startsWith('data: ')) continue
-      const payload = line.slice(6).trim()
-      if (payload === '[DONE]') break outer
-      try {
-        const delta = (JSON.parse(payload) as any).choices?.[0]?.delta?.content ?? ''
-        if (delta) { fullText += delta; onChunk(delta) }
-      } catch { /* partial SSE chunk — skip */ }
-    }
+  // If no API key is provided, use seamless realistic simulation engine
+  if (!key) {
+    const simulatedText = getSimulatedResponse(userPrompt)
+    return simulateStream(simulatedText, onChunk)
   }
 
-  return fullText
-}
+  // Live Groq API call
+  try {
+    const res = await fetch(BASE_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful, knowledgeable assistant. Give clear, well-structured responses. For code tasks prefer Python with a brief explanation before the code. Be specific and practical.',
+          },
+          { role: 'user', content: userPrompt },
+        ],
+        stream: true,
+      }),
+    })
 
-export interface GeneratedChecklistItem {
-  id: string
-  type: 'ai-suggested'
-  priority: 'p1' | 'p2' | 'p3'
-  title: string
-  description: string
-  hasRunCheckButton: boolean
-  runCheckResult: string
-}
+    if (!res.ok) {
+      if (res.status === 401) {
+        throw new Error('Groq API authentication failed (invalid API key). Please check your key in settings or clear it to use Demo Mode.')
+      }
+      if (res.status === 429) {
+        throw new Error('Groq rate limit exceeded. Please wait a moment or switch to Demo Mode.')
+      }
+      throw new Error(`Groq API error (${res.status}): ${await res.text()}`)
+    }
 
-export interface GeneratedChecklist {
-  calibration: string
-  items: GeneratedChecklistItem[]
+    const reader  = res.body!.getReader()
+    const decoder = new TextDecoder()
+    let fullText  = ''
+
+    outer: while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      for (const line of decoder.decode(value, { stream: true }).split('\n')) {
+        if (!line.startsWith('data: ')) continue
+        const payload = line.slice(6).trim()
+        if (payload === '[DONE]') break outer
+        try {
+          const delta = (JSON.parse(payload) as any).choices?.[0]?.delta?.content ?? ''
+          if (delta) { fullText += delta; onChunk(delta) }
+        } catch { /* partial SSE chunk — skip */ }
+      }
+    }
+
+    return fullText
+  } catch (err) {
+    // If it's a network error (e.g. offline, CORS), provide clear explanation
+    if (err instanceof TypeError && err.message.includes('fetch')) {
+      throw new Error('Could not connect to Groq API. Please check your internet connection or switch to Demo Mode.')
+    }
+    throw err
+  }
 }
 
 /**
@@ -96,18 +99,23 @@ needs the non-obvious failure modes they might not have considered.`
 }
 
 /**
- * After getting the main response, ask Groq to produce 6 targeted evaluation questions
- * specific to the actual content — not generic guidance.
- *
- * Each description must include concrete verification steps drawn from the response:
- * specific values to test, exact edge cases the implementation is vulnerable to,
- * or regression scenarios — so the user can think through and verify, not just acknowledge.
+ * Produce 6 targeted evaluation questions specific to the actual content.
+ * Falls back to realistic simulated checklist if no key is configured.
  */
 export async function generateChecklist(
   userPrompt: string,
   assistantResponse: string,
   profile?: CalibrationProfile
 ): Promise<GeneratedChecklist> {
+  const key = getGroqApiKey()
+
+  // If no API key is provided, use calibrated simulation engine
+  if (!key) {
+    // Short realistic async pause for UI state feel
+    await new Promise((r) => setTimeout(r, 600))
+    return getSimulatedChecklist(userPrompt, assistantResponse, profile)
+  }
+
   const system = `You are an expert at helping people critically evaluate AI-generated content.
 ${profileContext(profile)}
 
@@ -142,45 +150,53 @@ Return ONLY a JSON object — no prose:
   ]
 }`
 
-  const res = await fetch(BASE_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: `User's question:\n${userPrompt}\n\nAI's response:\n${assistantResponse}` },
-      ],
-      temperature: 0.3,
-      response_format: { type: 'json_object' },
-    }),
-  })
-
-  if (!res.ok) throw new Error(`Groq checklist ${res.status}: ${await res.text()}`)
-
-  const raw     = await res.json()
-  const content = (raw.choices[0].message.content as string).trim()
-
-  let parsed: any
   try {
-    parsed = JSON.parse(content)
-  } catch {
-    const m = content.match(/\{[\s\S]*\}/)
-    if (!m) throw new Error('Could not parse checklist JSON from Groq')
-    parsed = JSON.parse(m[0])
+    const res = await fetch(BASE_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: `User's question:\n${userPrompt}\n\nAI's response:\n${assistantResponse}` },
+        ],
+        temperature: 0.3,
+        response_format: { type: 'json_object' },
+      }),
+    })
+
+    if (!res.ok) {
+      console.warn(`Groq checklist failed with status ${res.status}. Falling back to simulated checklist.`)
+      return getSimulatedChecklist(userPrompt, assistantResponse, profile)
+    }
+
+    const raw     = await res.json()
+    const content = (raw.choices[0].message.content as string).trim()
+
+    let parsed: any
+    try {
+      parsed = JSON.parse(content)
+    } catch {
+      const m = content.match(/\{[\s\S]*\}/)
+      if (!m) throw new Error('Could not parse checklist JSON from Groq')
+      parsed = JSON.parse(m[0])
+    }
+
+    const items = ((parsed.items ?? []) as any[])
+      .slice(0, 6)
+      .map((item, i) => ({
+        id:                String(i + 1),
+        type:              'ai-suggested' as const,
+        priority:          (['p1','p2','p3'].includes(item.priority) ? item.priority : 'p2') as 'p1'|'p2'|'p3',
+        title:             String(item.title        ?? `Item ${i + 1}`),
+        description:       String(item.description  ?? ''),
+        hasRunCheckButton: !!item.hasRunCheckButton,
+        runCheckResult:    String(item.runCheckResult ?? ''),
+      }))
+
+    return { calibration: String(parsed.calibration ?? 'General'), items }
+  } catch (err) {
+    console.warn('Groq checklist generation error:', err, 'Falling back to simulated checklist.')
+    return getSimulatedChecklist(userPrompt, assistantResponse, profile)
   }
-
-  const items: GeneratedChecklistItem[] = ((parsed.items ?? []) as any[])
-    .slice(0, 6)
-    .map((item, i) => ({
-      id:                String(i + 1),
-      type:              'ai-suggested' as const,
-      priority:          (['p1','p2','p3'].includes(item.priority) ? item.priority : 'p2') as 'p1'|'p2'|'p3',
-      title:             String(item.title        ?? `Item ${i + 1}`),
-      description:       String(item.description  ?? ''),
-      hasRunCheckButton: !!item.hasRunCheckButton,
-      runCheckResult:    String(item.runCheckResult ?? ''),
-    }))
-
-  return { calibration: String(parsed.calibration ?? 'General'), items }
 }

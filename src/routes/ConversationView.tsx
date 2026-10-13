@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react'
-import { Send, AlertCircle, AlertTriangle } from 'lucide-react'
+import { Send, AlertCircle, AlertTriangle, X, RefreshCw } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import ClaudeHeader from '../components/ClaudeHeader'
 import ChatMessage from '../components/ChatMessage'
@@ -11,6 +11,7 @@ import { RESEARCH_PROMPT, RESEARCH_RESPONSE_PARAGRAPHS } from '../data/researchC
 import { streamResponse, generateChecklist } from '../lib/api'
 import { inferPromptSignals, DEMO_INVESTMENT_PROFILE, DEMO_RESEARCH_PROFILE } from '../lib/calibrationProfile'
 import { useUserProfile } from '../context/UserProfileContext'
+import { hasGroqApiKey, clearGroqApiKey } from '../lib/apiKey'
 
 // ── Hardcoded demo responses ─────────────────────────────────────────────────
 
@@ -127,9 +128,10 @@ interface InputBarProps {
   disabled: boolean
   isHighStakes: boolean
   onToggleHighStakes: () => void
+  isLiveEngine: boolean
 }
 
-function InputBar({ value, onChange, onSubmit, disabled, isHighStakes, onToggleHighStakes }: InputBarProps) {
+function InputBar({ value, onChange, onSubmit, disabled, isHighStakes, onToggleHighStakes, isLiveEngine }: InputBarProps) {
   const ref = useRef<HTMLTextAreaElement>(null)
 
   // Auto-resize
@@ -183,7 +185,7 @@ function InputBar({ value, onChange, onSubmit, disabled, isHighStakes, onToggleH
           </button>
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className="text-xs font-mono text-[#5e5d59] bg-[#ffffff] rounded-lg px-2 py-1 border border-[#e8e6dc] shadow-ring-subtle">
-              Opus 4.7
+              {isLiveEngine ? 'Groq Llama 3.3' : 'Opus 4.7'}
             </span>
             <button
               onClick={onSubmit}
@@ -219,22 +221,24 @@ export default function ConversationView({ scenario }: ConversationViewProps) {
   const [liveResponse,  setLiveResponse]  = useState('')
   const [apiError,      setApiError]      = useState<string | null>(null)
   const [highStakesDraft, setHighStakesDraft] = useState(false)
+  const [isLiveEngine,  setIsLiveEngine]  = useState(() => hasGroqApiKey())
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const isLive    = conversationPhase !== 'demo'
-  const isBusy    = conversationPhase === 'streaming' || conversationPhase === 'generating_checklist'
+  useEffect(() => {
+    const handleKeyChange = () => setIsLiveEngine(hasGroqApiKey())
+    window.addEventListener('groq_api_key_changed', handleKeyChange)
+    return () => window.removeEventListener('groq_api_key_changed', handleKeyChange)
+  }, [])
+
+  const isLive = conversationPhase !== 'demo'
+  const isBusy = conversationPhase === 'streaming' || conversationPhase === 'generating_checklist'
 
   // Scroll to bottom as response streams in
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [liveResponse])
 
-  const handleSubmit = async () => {
-    const prompt = inputDraft.trim()
-    if (!prompt || isBusy) return
-
-    const submittedHighStakes = highStakesDraft
-    setInputDraft('')
+  const executeSubmission = async (prompt: string, submittedHighStakes: boolean) => {
     setApiError(null)
     setLivePrompt(prompt)
     setLiveResponse('')
@@ -259,7 +263,24 @@ export default function ConversationView({ scenario }: ConversationViewProps) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error'
       setApiError(msg)
-      setConversationPhase('demo')
+      setConversationPhase('ready')
+    }
+  }
+
+  const handleSubmit = async () => {
+    const prompt = inputDraft.trim()
+    if (!prompt || isBusy) return
+    const submittedHighStakes = highStakesDraft
+    setInputDraft('')
+    await executeSubmission(prompt, submittedHighStakes)
+  }
+
+  const handleSwitchToDemoAndRetry = async () => {
+    clearGroqApiKey()
+    setIsLiveEngine(false)
+    setApiError(null)
+    if (livePrompt) {
+      await executeSubmission(livePrompt, highStakesDraft)
     }
   }
 
@@ -283,11 +304,30 @@ export default function ConversationView({ scenario }: ConversationViewProps) {
             <div className="flex-1 overflow-y-auto">
               <div className="max-w-2xl mx-auto px-6 py-8">
 
-                {/* API error banner */}
+                {/* API error banner with graceful fallback */}
                 {apiError && (
-                  <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/25 rounded-xl px-4 py-3 mb-6 text-xs font-serif text-red-700">
-                    <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
-                    <pre className="whitespace-pre-wrap font-mono">{apiError}</pre>
+                  <div className="flex items-start justify-between gap-3 bg-[#c96442]/10 border border-[#c96442]/30 rounded-xl px-4 py-3 mb-6 text-xs font-serif text-[#141413] shadow-ring-subtle">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <AlertCircle size={15} className="text-[#c96442] flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-[#c96442]">Unable to connect to live LLM</p>
+                        <p className="text-[#5e5d59] mt-0.5 leading-relaxed">{apiError}</p>
+                        <button
+                          onClick={handleSwitchToDemoAndRetry}
+                          className="mt-2 inline-flex items-center gap-1.5 font-medium text-xs text-[#c96442] hover:text-[#b85938] underline"
+                        >
+                          <RefreshCw size={11} />
+                          Switch to Demo AI Simulation & retry
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setApiError(null)}
+                      className="p-1 rounded-md text-[#87867f] hover:text-[#141413] transition-colors"
+                      title="Dismiss error"
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
                 )}
 
@@ -328,6 +368,7 @@ export default function ConversationView({ scenario }: ConversationViewProps) {
               disabled={isBusy}
               isHighStakes={highStakesDraft}
               onToggleHighStakes={() => setHighStakesDraft((v) => !v)}
+              isLiveEngine={isLiveEngine}
             />
           </div>
 
