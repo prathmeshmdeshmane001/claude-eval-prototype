@@ -15,6 +15,13 @@
 export type ExpertiseLevel = 'novice' | 'practitioner' | 'expert'
 export type TimeInRole = '<6m' | '6m-2y' | '2y+'
 
+export interface PromptSignals {
+  detectedDomain: string
+  factualDensity: 'low' | 'moderate' | 'high'
+  promptSpecificity: ExpertiseLevel
+  signalsSummary: string
+}
+
 export interface CalibrationProfile {
   /** Stored so the onboarding form can pre-fill on edit */
   timeInRole?: TimeInRole
@@ -44,6 +51,9 @@ export interface CalibrationProfile {
    * Updated at prompt-submission time.
    */
   promptSpecificity: ExpertiseLevel
+
+  /** Inferred prompt signals from the live prompt text */
+  promptSignals?: PromptSignals
 
   /** Number of completed evaluation sessions — affects longitudinal weight */
   sessionCount: number
@@ -76,6 +86,7 @@ export function profileFromRole(role: string): CalibrationProfile {
  *  - Named entities, metrics, or specific constraints → higher promptSpecificity
  *  - Scoped framing ("for a Series B investment in X") → practitioner+
  *  - Vague verbs ("tell me about X") → lower specificity
+ *  - Domain detection (financial, research, code, operations, legal)
  */
 export function inferPromptSignals(
   prompt: string,
@@ -83,20 +94,46 @@ export function inferPromptSignals(
 ): CalibrationProfile {
   const lower = prompt.toLowerCase()
 
-  // Specificity signals
-  const hasNamedEntity  = /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+/.test(prompt)   // Named company/product
-  const hasMetric       = /\d+%|\$\d+|\bseries [abc]\b|cagr|tam|arr|mrr/i.test(lower)
-  const hasConstraints  = /(must|should|ensure|as of|for the purpose of|in the context of)/i.test(lower)
-  const isVague         = /^(tell me about|what is|explain|summarize|describe)\s+\w+$/i.test(prompt.trim())
+  // Domain detection
+  let detectedDomain = 'General Strategy'
+  if (/novapay|series [abc]|fintech|payment|smb|arr|mrr|cagr|tam|valuation|investment|ebitda|margin/i.test(lower)) {
+    detectedDomain = 'Financial & Venture Analysis'
+  } else if (/sleep|cognitive|deprivation|memory|clinical|trial|pubmed|biomarker|patient/i.test(lower)) {
+    detectedDomain = 'Scientific & Clinical Research'
+  } else if (/python|code|script|sql|api|database|bug|function|docker|dataframe/i.test(lower)) {
+    detectedDomain = 'Engineering & Data Systems'
+  } else if (/compliance|ojk|sec|gdpr|regulation|legal|contract|license/i.test(lower)) {
+    detectedDomain = 'Regulatory & Legal Compliance'
+  }
+
+  // Factual density detection
+  const numbersCount = (prompt.match(/\d+/g) || []).length
+  const hasNamedEntity = /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+/.test(prompt)
+  const hasMetric = /\d+%|\$\d+|\bseries [abc]\b|cagr|tam|arr|mrr|ebitda/i.test(lower)
+  const hasConstraints = /(must|should|ensure|as of|for the purpose of|in the context of|specifically)/i.test(lower)
+  const isVague = /^(tell me about|what is|explain|summarize|describe)\s+\w+$/i.test(prompt.trim())
+
+  const factualDensity: 'low' | 'moderate' | 'high' =
+    numbersCount >= 3 || (hasMetric && hasNamedEntity) ? 'high' :
+    hasMetric || hasNamedEntity ? 'moderate' : 'low'
 
   const specificitySignals = [hasNamedEntity, hasMetric, hasConstraints].filter(Boolean).length
   const promptSpecificity: ExpertiseLevel =
-    isVague            ? 'novice' :
+    isVague ? 'novice' :
     specificitySignals >= 2 ? 'expert' :
     specificitySignals === 1 ? 'practitioner' :
     base.promptSpecificity
 
-  return { ...base, promptSpecificity }
+  const signalsSummary = `Domain: ${detectedDomain} | Factual Density: ${factualDensity} | Specificity: ${promptSpecificity}`
+
+  const promptSignals: PromptSignals = {
+    detectedDomain,
+    factualDensity,
+    promptSpecificity,
+    signalsSummary,
+  }
+
+  return { ...base, promptSpecificity, promptSignals }
 }
 
 /**

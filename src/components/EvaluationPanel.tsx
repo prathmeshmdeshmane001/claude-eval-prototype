@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   CheckCircle2, Share2, Loader2, Building2, Sparkles,
-  Check, Pencil, ChevronRight, ChevronLeft, AlertTriangle,
+  Check, Pencil, ChevronRight, ChevronLeft, AlertTriangle, Info,
 } from 'lucide-react'
 import { useEvaluation } from '../context/EvaluationContext'
 import { useUserProfile } from '../context/UserProfileContext'
@@ -52,9 +52,10 @@ export default function EvaluationPanel() {
   } = useEvaluation()
   const { profile, openEditor } = useUserProfile()
 
-  const [showModal,  setShowModal]  = useState(false)
-  const [collapsed,  setCollapsed]  = useState(false)
-  const [p1Visible,  setP1Visible]  = useState(false)
+  const [showModal,      setShowModal]      = useState(false)
+  const [collapsed,      setCollapsed]      = useState(false)
+  const [p1Visible,      setP1Visible]      = useState(false)
+  const [showLogicGuide, setShowLogicGuide] = useState(true)
 
   useEffect(() => {
     if (allP1Done) {
@@ -80,7 +81,7 @@ export default function EvaluationPanel() {
         className={`
           flex-shrink-0 flex flex-col border-l border-[#e8e6dc] bg-[#f5f4ed]
           overflow-hidden transition-all duration-300 ease-in-out select-none
-          ${collapsed ? 'w-11' : 'w-[380px]'}
+          ${collapsed ? 'w-11' : 'w-[390px]'}
         `}
       >
         {/* ── Collapsed strip ──────────────────────────────────────────── */}
@@ -146,7 +147,7 @@ export default function EvaluationPanel() {
               <p className="text-xs font-serif mt-0.5">
                 <span className="text-[#5e5d59]">AI checks calibrated for:{' '}</span>
                 {isGenerating
-                  ? <span className="text-[#87867f] italic">generating…</span>
+                  ? <span className="text-[#87867f] italic">calibrating from prompt signals…</span>
                   : <span className="text-[#141413] font-semibold">{calibrationLabel}</span>
                 }
               </p>
@@ -186,6 +187,32 @@ export default function EvaluationPanel() {
                 </div>
               )}
 
+              {/* Checklist Prioritization Framework Guide */}
+              <div className="mt-3.5 pt-3 border-t border-[#e8e6dc]">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1 text-[11px] font-serif font-semibold text-[#141413]">
+                    <Info size={11} className="text-[#c96442]" />
+                    <span>Prioritization Logic</span>
+                  </div>
+                  <span className="text-[10px] font-serif text-[#87867f] italic">Priority directs attention</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5">
+                  <div className="rounded-lg bg-[#c96442]/8 border border-[#c96442]/25 p-1.5 text-center">
+                    <span className="block font-mono font-bold text-[10px] text-[#c96442]">P1 · Truth</span>
+                    <span className="block text-[9px] font-serif text-[#c96442]/85 mt-0.5 leading-tight">Could fail externally</span>
+                  </div>
+                  <div className="rounded-lg bg-[#5e5d59]/8 border border-[#5e5d59]/20 p-1.5 text-center">
+                    <span className="block font-mono font-bold text-[10px] text-[#5e5d59]">P2 · Complete</span>
+                    <span className="block text-[9px] font-serif text-[#5e5d59]/85 mt-0.5 leading-tight">Could mislead</span>
+                  </div>
+                  <div className="rounded-lg bg-[#87867f]/8 border border-[#87867f]/20 p-1.5 text-center">
+                    <span className="block font-mono font-bold text-[10px] text-[#87867f]">P3 · Quality</span>
+                    <span className="block text-[9px] font-serif text-[#87867f]/85 mt-0.5 leading-tight">Could be sharper</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Progress bars */}
               {showProgress && total > 0 && (conversationPhase === 'demo' || isHighStakes) && (
                 <div className="mt-3.5 space-y-2.5">
@@ -198,12 +225,12 @@ export default function EvaluationPanel() {
                         }
                         <span className="text-xs font-serif text-[#5e5d59]">
                           {allP1Done
-                            ? <span className="text-[#4a7c59] font-semibold">Critical checks cleared</span>
-                            : <><span className="text-[#141413] font-semibold">{p1CompletedCount}</span> of {p1Total} critical</>
+                            ? <span className="text-[#4a7c59] font-semibold">Critical truth checks cleared</span>
+                            : <><span className="text-[#141413] font-semibold">{p1CompletedCount}</span> of {p1Total} critical (P1)</>
                           }
                         </span>
                       </div>
-                      <span className="text-[11px] font-mono text-[#5e5d59] font-semibold">P1</span>
+                      <span className="text-[11px] font-mono text-[#5e5d59] font-semibold">P1 Gating</span>
                     </div>
                     <div className="h-1.5 bg-[#e8e6dc] rounded-full overflow-hidden">
                       <div
@@ -215,7 +242,7 @@ export default function EvaluationPanel() {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-serif text-[#5e5d59]">
-                        <span className="text-[#141413] font-semibold">{completedCount}</span> of {total} total
+                        <span className="text-[#141413] font-semibold">{completedCount}</span> of {total} total items verified
                       </span>
                       <span className="text-xs font-mono text-[#5e5d59]">{pct}%</span>
                     </div>
@@ -266,21 +293,26 @@ export default function EvaluationPanel() {
                     <div className="flex items-center gap-1.5 px-0.5 mb-2">
                       <Sparkles size={11} className="text-[#87867f] flex-shrink-0" />
                       <span className="text-[11px] font-serif font-semibold text-[#5e5d59] uppercase tracking-wider">
-                        Suggested for this task
+                        Calibrated for this task
                       </span>
                     </div>
 
                     {isStreaming && (
                       <div className="flex flex-col items-center justify-center py-10 gap-3">
                         <Loader2 size={20} className="animate-spin text-[#c96442]" />
-                        <p className="text-xs font-serif text-center text-[#5e5d59]">Waiting for response…</p>
+                        <p className="text-xs font-serif text-center text-[#5e5d59]">Streaming AI response…</p>
                       </div>
                     )}
                     {isGenerating && (
                       <div className="flex flex-col gap-3">
-                        <div className="flex items-center gap-2 text-xs font-serif text-[#5e5d59] mb-1">
-                          <Loader2 size={13} className="animate-spin text-[#c96442]" />
-                          Generating evaluation questions…
+                        <div className="p-3 bg-[#faf9f5] border border-[#e8e6dc] shadow-ring-subtle rounded-xl text-xs font-serif space-y-1.5">
+                          <div className="flex items-center gap-2 text-[#c96442] font-semibold">
+                            <Loader2 size={13} className="animate-spin text-[#c96442]" />
+                            <span>Checklist Generation Service Active</span>
+                          </div>
+                          <p className="text-[#5e5d59] leading-relaxed">
+                            Parsing prompt signals & response claims against {profile?.role ?? 'role'} calibration…
+                          </p>
                         </div>
                         <ChecklistSkeleton />
                       </div>
@@ -313,7 +345,7 @@ export default function EvaluationPanel() {
                         <p className="text-xs font-serif font-bold text-[#4a7c59]">Critical checks cleared</p>
                         <p className="text-xs font-serif text-[#4a7c59]/80 mt-0.5 leading-relaxed">
                           You've verified the claims that matter most for this output.
-                          {completedCount < total && ' P2 items can be reviewed independently.'}
+                          {completedCount < total && ' P2 and P3 items can be reviewed independently.'}
                         </p>
                       </div>
                     </div>
@@ -331,7 +363,7 @@ export default function EvaluationPanel() {
                   <div className="px-4 pb-5 flex-shrink-0">
                     <div className="w-full flex items-center justify-center gap-2 text-xs font-serif text-[#5e5d59] border border-dashed border-[#e8e6dc] bg-[#faf9f5] rounded-xl px-4 py-2.5 shadow-ring-subtle">
                       <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded border border-[#c96442]/30 text-[#c96442] bg-[#c96442]/10">P1</span>
-                      Complete all critical checks to share
+                      Complete all critical truth checks to share
                     </div>
                   </div>
                 )}

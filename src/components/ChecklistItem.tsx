@@ -97,13 +97,27 @@ export default function ChecklistItem({
                 {item.title}
               </p>
               {item.priority === 'p1' && (
-                <span className="text-[10px] font-mono font-semibold tracking-wide px-1.5 py-0.5 rounded border border-[#c96442]/30 text-[#c96442] bg-[#c96442]/10 flex-shrink-0 mt-0.5 select-none">
-                  P1
+                <span
+                  title="P1 Critical: Truth (could fail externally) — required to unlock team share"
+                  className="text-[10px] font-mono font-semibold tracking-wide px-1.5 py-0.5 rounded border border-[#c96442]/35 text-[#c96442] bg-[#c96442]/10 flex-shrink-0 mt-0.5 select-none"
+                >
+                  P1 · Truth
                 </span>
               )}
               {item.priority === 'p2' && (
-                <span className="text-[10px] font-mono font-semibold tracking-wide px-1.5 py-0.5 rounded border border-[#87867f]/30 text-[#5e5d59] bg-[#87867f]/10 flex-shrink-0 mt-0.5 select-none">
-                  P2
+                <span
+                  title="P2 Important: Completeness (could mislead)"
+                  className="text-[10px] font-mono font-semibold tracking-wide px-1.5 py-0.5 rounded border border-[#5e5d59]/30 text-[#5e5d59] bg-[#5e5d59]/10 flex-shrink-0 mt-0.5 select-none"
+                >
+                  P2 · Completeness
+                </span>
+              )}
+              {item.priority === 'p3' && (
+                <span
+                  title="P3 Best Practice: Quality (could be sharper)"
+                  className="text-[10px] font-mono font-semibold tracking-wide px-1.5 py-0.5 rounded border border-[#87867f]/30 text-[#87867f] bg-[#87867f]/10 flex-shrink-0 mt-0.5 select-none"
+                >
+                  P3 · Quality
                 </span>
               )}
             </div>

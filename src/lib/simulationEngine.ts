@@ -155,7 +155,10 @@ export async function simulateStream(
 }
 
 /**
- * Returns a calibrated 6-item evaluation checklist when live LLM is not configured.
+ * Returns a calibrated 6-item evaluation checklist strictly following:
+ *   P1: Critical (Truth — could fail externally)
+ *   P2: Important (Completeness — could mislead)
+ *   P3: Best Practice (Quality — could be sharper)
  */
 export function getSimulatedChecklist(
   prompt: string,
@@ -186,30 +189,35 @@ export function getSimulatedChecklist(
       {
         id: '1',
         priority: 'p1',
+        priorityCategory: 'truth',
         title: 'Does the implementation handle empty DataFrames or missing key fields?',
         description: 'Verify boundary behavior when passing zero rows or DataFrames missing the required identifiers. Confirm that no unhandled KeyError or ZeroDivisionError is raised.',
       },
       {
         id: '2',
         priority: 'p1',
+        priorityCategory: 'truth',
         title: 'Are memory allocations and vectorization optimized for production scale?',
         description: 'Check whether intermediate grouped objects copy data unnecessarily. For large datasets, verify that memory consumption scales linearly with row count rather than quadratic grouping overhead.',
       },
       {
         id: '3',
         priority: 'p2',
+        priorityCategory: 'completeness',
         title: 'Are the sorting and ranking ties broken deterministically?',
         description: 'When multiple rows share identical aggregate values, verify if an explicit secondary sort key is specified to guarantee stable, deterministic ordering across runs.',
       },
       {
         id: '4',
         priority: 'p2',
+        priorityCategory: 'completeness',
         title: 'Are parameter type annotations and return schemas explicitly validated?',
         description: 'Confirm that function arguments enforce expected types and that numeric outputs maintain consistent floating-point rounding for downstream serialization.',
       },
       {
         id: '5',
         priority: 'p1',
+        priorityCategory: 'truth',
         title: 'Run automated type check and lint verification against PEP 8 rules',
         description: 'Cross-reference type hints and formatting against static typecheck and linting tools to guarantee runtime compatibility.',
         hasRunCheckButton: true,
@@ -218,6 +226,7 @@ export function getSimulatedChecklist(
       {
         id: '6',
         priority: 'p3',
+        priorityCategory: 'quality',
         title: 'What logging or observability considerations are missing for production?',
         description: 'Assess whether production execution requires execution time telemetry, structured log events, or alerts for dropped filtered records.',
       },
@@ -234,30 +243,35 @@ export function getSimulatedChecklist(
     {
       id: '1',
       priority: 'p1',
+      priorityCategory: 'truth',
       title: 'Are the specific figures, metrics, and claims traceable to primary sources?',
       description: 'Review the quantitative claims in the response and verify whether each is grounded in verified documentation or empirical telemetry rather than estimated approximations.',
     },
     {
       id: '2',
       priority: 'p1',
+      priorityCategory: 'truth',
       title: 'Are critical baseline assumptions clearly stated and defensible?',
       description: 'Identify the underlying conditions required for the response recommendations to remain valid. Flag any implicit dependencies that could fail under changed operating environments.',
     },
     {
       id: '3',
       priority: 'p2',
+      priorityCategory: 'completeness',
       title: 'Does the response address the primary edge cases and failure modes?',
       description: 'Check whether low-probability, high-impact failure scenarios have been considered, or if the analysis assumes ideal steady-state conditions throughout.',
     },
     {
       id: '4',
       priority: 'p2',
+      priorityCategory: 'completeness',
       title: 'Is the depth and technical terminology calibrated to the intended audience?',
       description: 'Ensure that explanations neither oversimplify crucial domain mechanics nor introduce unnecessary jargon that obscures operational clarity.',
     },
     {
       id: '5',
       priority: 'p1',
+      priorityCategory: 'truth',
       title: 'Cross-reference core compliance and benchmark claims against industry standard',
       description: 'Verify specific regulatory and benchmark thresholds cited in the text against authoritative published guidelines.',
       hasRunCheckButton: true,
@@ -266,6 +280,7 @@ export function getSimulatedChecklist(
     {
       id: '6',
       priority: 'p3',
+      priorityCategory: 'quality',
       title: 'What counterarguments or alternative interpretations were omitted?',
       description: 'Evaluate whether credible alternative methodologies or contrasting perspectives exist that would alter the recommended course of action.',
     },
