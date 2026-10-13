@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState } from 'react'
+import React, { createContext, useContext, useState, useEffect } from 'react'
 import type { ChecklistItemData } from '../data/checklist'
+import { MANAGER_COMMENT } from '../data/managerComment'
+import { RESEARCH_MANAGER_COMMENT } from '../data/researchChecklist'
 
 export interface ChecklistItemState {
   id: string
@@ -14,6 +16,12 @@ interface EvaluationContextValue {
   checklistItems: ChecklistItemState[]
   calibrationLabel: string
   managerPath: string
+  taskDesc: string
+  setTaskDesc: (desc: string) => void
+  taskBadge: string
+  setTaskBadge: (badge: string) => void
+  managerComment?: any
+  setManagerComment: (comment: any) => void
   toggleItem: (id: string) => void
   addNote: (id: string, note: string) => void
   isShared: boolean
@@ -65,6 +73,39 @@ export function EvaluationProvider({
   const [conversationPhase, setConversationPhase]  = useState<ConversationPhase>('demo')
   const [isHighStakes,      setHighStakes]         = useState(false)
 
+  const [taskDesc, setTaskDesc] = useState<string>(() => {
+    return managerPath.includes('research')
+      ? 'Research summary — sleep deprivation effects on adult cognitive performance.'
+      : 'Investment due diligence — market opportunity and key risks for NovaPay Series B.'
+  })
+
+  const [taskBadge, setTaskBadge] = useState<string>(() => {
+    return managerPath.includes('research') ? 'Research' : 'Investment research'
+  })
+
+  const [managerComment, setManagerComment] = useState<any>(() => {
+    return managerPath.includes('research') ? RESEARCH_MANAGER_COMMENT : MANAGER_COMMENT
+  })
+
+  // Sync active evaluation log to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        'claude_eval_active_log',
+        JSON.stringify({
+          taskDesc,
+          taskBadge,
+          calibrationLabel,
+          aiChecklistData,
+          checklistItems,
+          managerComment,
+          isShared,
+          lastUpdated: new Date().toISOString(),
+        })
+      )
+    } catch {}
+  }, [taskDesc, taskBadge, calibrationLabel, aiChecklistData, checklistItems, managerComment, isShared])
+
   // Merged list exposed to consumers — org checks always first
   const checklistData: ChecklistItemData[] = [...orgChecklistData, ...aiChecklistData]
 
@@ -105,6 +146,12 @@ export function EvaluationProvider({
         checklistItems,
         calibrationLabel,
         managerPath,
+        taskDesc,
+        setTaskDesc,
+        taskBadge,
+        setTaskBadge,
+        managerComment,
+        setManagerComment,
         toggleItem,
         addNote,
         isShared,

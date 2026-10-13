@@ -8,6 +8,7 @@ import EvaluationPanel from '../components/EvaluationPanel'
 import { useEvaluation } from '../context/EvaluationContext'
 import { INVESTMENT_PROMPT, INVESTMENT_RESPONSE_PARAGRAPHS } from '../data/conversation'
 import { RESEARCH_PROMPT, RESEARCH_RESPONSE_PARAGRAPHS } from '../data/researchConversation'
+import { LOAN_RISK_MANAGER_COMMENT } from '../data/loanRiskChecklist'
 import { streamResponse, generateChecklist } from '../lib/api'
 import { inferPromptSignals, DEMO_INVESTMENT_PROFILE, DEMO_RESEARCH_PROFILE } from '../lib/calibrationProfile'
 import { useUserProfile } from '../context/UserProfileContext'
@@ -240,8 +241,17 @@ interface ConversationViewProps {
 
 export default function ConversationView({ scenario }: ConversationViewProps) {
   const { profile: userProfile } = useUserProfile()
-  const { managerPath, isShared, conversationPhase, setConversationPhase, updateChecklistData, setHighStakes } =
-    useEvaluation()
+  const {
+    managerPath,
+    isShared,
+    conversationPhase,
+    setConversationPhase,
+    updateChecklistData,
+    setHighStakes,
+    setTaskDesc,
+    setTaskBadge,
+    setManagerComment,
+  } = useEvaluation()
 
   // Live conversation state
   const [inputDraft,    setInputDraft]    = useState('')
@@ -272,11 +282,20 @@ export default function ConversationView({ scenario }: ConversationViewProps) {
     setLiveResponse('')
 
     // Inherently high stakes domains (credit risk, loan portfolio, financial due diligence, clinical research)
+    const isLoanRisk = /loan|repayment|charge[- ]off|charged[- ]off|delinquency|underwriting|credit risk|lending/i.test(prompt)
     const isInherentlyHighStakes =
-      /loan|repayment|charge[- ]off|charged[- ]off|delinquency|underwriting|credit risk|lending|dpd|cecl|dti|series [abc]|novapay|clinical|trial|investment|valuation/i.test(
-        prompt
-      )
+      isLoanRisk ||
+      /dpd|cecl|dti|series [abc]|novapay|clinical|trial|investment|valuation/i.test(prompt)
     const effectiveHighStakes = submittedHighStakes || isInherentlyHighStakes
+
+    if (isLoanRisk) {
+      setTaskDesc(prompt)
+      setTaskBadge('Credit Risk & Portfolio Analytics')
+      setManagerComment(LOAN_RISK_MANAGER_COMMENT)
+    } else {
+      setTaskDesc(prompt)
+      setTaskBadge(scenario === 'research' ? 'Research' : 'Investment research')
+    }
 
     setHighStakes(effectiveHighStakes)
     setConversationPhase('streaming')

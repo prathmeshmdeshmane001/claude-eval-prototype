@@ -36,10 +36,10 @@ export default function ChecklistItem({
   noteOverride,
 }: ChecklistItemProps) {
   const { checklistItems, toggleItem, addNote } = useEvaluation()
-  const state = checklistItems.find((i) => i.id === item.id)!
+  const state = checklistItems.find((i) => i.id === item.id)
 
-  const checked = readOnly && checkedOverride !== undefined ? checkedOverride : state.checked
-  const note    = readOnly && noteOverride    !== undefined ? noteOverride    : state.note
+  const checked = readOnly && checkedOverride !== undefined ? checkedOverride : state?.checked ?? false
+  const note    = readOnly && noteOverride    !== undefined ? noteOverride    : state?.note ?? ''
 
   // Auto-expand note textarea when a note already exists
   const [noteExpanded, setNoteExpanded] = useState(note !== '')

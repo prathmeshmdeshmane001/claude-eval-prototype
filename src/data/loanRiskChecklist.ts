@@ -81,3 +81,14 @@ Rather than treating all delinquent accounts uniformly, recovery operations shou
   - Offer structured short-term forbearance (1–3 month interest-only or payment deferral) to prevent roll-over into 60+ DPD.
 - **Tier 3: 60–89 DPD (Intensive Workout & Mitigation)**:
   - Route accounts directly to senior loss-mitigation specialists for loan re-amortization or settlement workouts before the formal 120-day charge-off trigger.`
+
+export const LOAN_RISK_ITEM_3_SEED_NOTE =
+  'Confirmed with portfolio analytics: revolving utilization >75% and DTI >36% are independent behavioral drivers, not artifacts of risk-based pricing. Prime-tier borrowers with elevated utilization exhibit similar 3.2x roll-to-loss rates regardless of loan grade.'
+
+export const LOAN_RISK_MANAGER_COMMENT = {
+  author: 'Sarah Jenkins',
+  role: 'Head of Credit Risk & Underwriting',
+  initials: 'S',
+  timestamp: 'Today at 4:45 PM',
+  text: "Strong evaluation catch on distinguishing 30-89 DPD rolling delinquency from GAAP/CECL charge-offs. On item 5 — ensure the four-fifths fair lending compliance ratio holds across sub-prime credit tiers before we present the revised underwriting policy to the Credit Committee. Also, confirm recovery operations has bandwidth for the Tier 2 forbearance workouts.",
+}

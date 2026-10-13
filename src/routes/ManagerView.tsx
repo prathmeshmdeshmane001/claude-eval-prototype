@@ -1,34 +1,20 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Clock, Building2, Sparkles } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import PrivacyBanner from '../components/PrivacyBanner'
 import CommentThread from '../components/CommentThread'
 import ChecklistItem from '../components/ChecklistItem'
-import { CHECKLIST_ITEMS, ITEM_3_SEED_NOTE } from '../data/checklist'
+import { CHECKLIST_ITEMS, ITEM_3_SEED_NOTE, ChecklistItemData } from '../data/checklist'
 import { RESEARCH_CHECKLIST_ITEMS, RESEARCH_ITEM_3_SEED_NOTE, RESEARCH_MANAGER_COMMENT } from '../data/researchChecklist'
 import { MANAGER_COMMENT } from '../data/managerComment'
-import { ORG_CHECKLIST_ITEMS, ORG_DEMO_STATES, ORG_NAME } from '../data/orgChecks'
+import {
+  LOAN_RISK_CHECKLIST_ITEMS,
+  LOAN_RISK_ITEM_3_SEED_NOTE,
+  LOAN_RISK_MANAGER_COMMENT,
+} from '../data/loanRiskChecklist'
+import { ORG_CHECKLIST_ITEMS, ORG_NAME } from '../data/orgChecks'
 import { EvaluationProvider } from '../context/EvaluationContext'
-
-// ── Hardcoded demo states ─────────────────────────────────────────────────────
-
-const CODE_STATES: Record<string, { checked: boolean; note: string }> = {
-  '1': { checked: true,  note: '' },
-  '2': { checked: true,  note: '' },
-  '3': { checked: true,  note: ITEM_3_SEED_NOTE },
-  '4': { checked: true,  note: '' },
-  '5': { checked: true,  note: '' },
-  '6': { checked: true,  note: '' },
-}
-
-const RESEARCH_STATES: Record<string, { checked: boolean; note: string }> = {
-  '1': { checked: true,  note: '' },
-  '2': { checked: true,  note: '' },
-  '3': { checked: true,  note: RESEARCH_ITEM_3_SEED_NOTE },
-  '4': { checked: true,  note: '' },
-  '5': { checked: true,  note: '' },
-  '6': { checked: true,  note: '' },
-}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -41,23 +27,101 @@ export default function ManagerView({ scenario }: ManagerViewProps) {
     month: 'long', day: 'numeric', year: 'numeric',
   })
 
-  const isInvestment   = scenario === 'investment'
-  const aiItems        = isInvestment ? CHECKLIST_ITEMS         : RESEARCH_CHECKLIST_ITEMS
-  const aiStates       = isInvestment ? CODE_STATES             : RESEARCH_STATES
-  const managerComment = isInvestment ? MANAGER_COMMENT         : RESEARCH_MANAGER_COMMENT
-  const backPath       = isInvestment ? '/'                     : '/research'
-  const taskDesc       = isInvestment
+  // Read active evaluation session from localStorage if present
+  const [activeLog] = useState<any>(() => {
+    try {
+      const raw = localStorage.getItem('claude_eval_active_log')
+      if (raw) return JSON.parse(raw)
+    } catch {}
+    return null
+  })
+
+  const isInvestment = scenario === 'investment'
+
+  // Detect if active task is about loan risk / repayment / charge off
+  const isLoanRisk = Boolean(
+    activeLog?.taskDesc &&
+      /loan|repayment|charge[- ]off|charged[- ]off|delinquency|underwriting|credit risk|lending/i.test(
+        activeLog.taskDesc
+      )
+  )
+
+  // 1. Task description
+  let taskDesc = isInvestment
     ? 'Investment due diligence — market opportunity and key risks for NovaPay Series B.'
     : 'Research summary — sleep deprivation effects on adult cognitive performance.'
-  const taskBadge      = isInvestment ? 'Investment research' : 'Research'
-  const calibLabel     = isInvestment
+  if (activeLog?.taskDesc) {
+    taskDesc = activeLog.taskDesc
+  }
+
+  // 2. Task badge
+  let taskBadge = isInvestment ? 'Investment research' : 'Research'
+  if (isLoanRisk) {
+    taskBadge = 'Credit Risk & Portfolio Analytics'
+  } else if (activeLog?.taskBadge) {
+    taskBadge = activeLog.taskBadge
+  }
+
+  // 3. Calibration label
+  let calibLabel = isInvestment
     ? 'Business Analyst — Investment Research'
     : 'Researcher / Analyst'
+  if (isLoanRisk) {
+    calibLabel = 'Credit Risk Analyst — Portfolio Strategy'
+  } else if (activeLog?.calibrationLabel) {
+    calibLabel = activeLog.calibrationLabel
+  }
 
-  const allStates = { ...ORG_DEMO_STATES, ...aiStates }
+  // 4. AI items
+  let aiItems: ChecklistItemData[] = isInvestment ? CHECKLIST_ITEMS : RESEARCH_CHECKLIST_ITEMS
+  if (isLoanRisk) {
+    aiItems = LOAN_RISK_CHECKLIST_ITEMS
+  } else if (activeLog?.aiChecklistData && activeLog.aiChecklistData.length > 0) {
+    aiItems = activeLog.aiChecklistData.filter(
+      (item: any) => !ORG_CHECKLIST_ITEMS.some((o) => o.id === item.id)
+    )
+  }
+
+  // 5. Manager comment
+  let managerComment = isInvestment ? MANAGER_COMMENT : RESEARCH_MANAGER_COMMENT
+  if (isLoanRisk) {
+    managerComment = LOAN_RISK_MANAGER_COMMENT
+  } else if (activeLog?.managerComment) {
+    managerComment = activeLog.managerComment
+  }
+
+  const backPath = isInvestment ? '/' : '/research'
+
+  // 6. States mapping (checked & notes)
+  const aiStates: Record<string, { checked: boolean; note: string }> = {}
+  aiItems.forEach((item) => {
+    const found = activeLog?.checklistItems?.find((s: any) => s.id === item.id)
+    const defaultNote =
+      item.id === '3'
+        ? isLoanRisk
+          ? LOAN_RISK_ITEM_3_SEED_NOTE
+          : isInvestment
+          ? ITEM_3_SEED_NOTE
+          : RESEARCH_ITEM_3_SEED_NOTE
+        : ''
+    aiStates[item.id] = {
+      checked: found !== undefined ? found.checked : true,
+      note: found?.note || defaultNote,
+    }
+  })
+
+  const orgStates: Record<string, { checked: boolean; note: string }> = {}
+  ORG_CHECKLIST_ITEMS.forEach((item) => {
+    const found = activeLog?.checklistItems?.find((s: any) => s.id === item.id)
+    orgStates[item.id] = {
+      checked: found !== undefined ? found.checked : true,
+      note: found?.note || '',
+    }
+  })
+
+  const allStates = { ...orgStates, ...aiStates }
   const totalItems = ORG_CHECKLIST_ITEMS.length + aiItems.length
   const completedCount = Object.values(allStates).filter((s) => s.checked).length
-
   const seedNotes = Object.fromEntries(Object.entries(allStates).map(([k, v]) => [k, v.note]))
 
   return (
@@ -139,8 +203,8 @@ export default function ManagerView({ scenario }: ManagerViewProps) {
                       key={item.id}
                       item={item}
                       readOnly
-                      checkedOverride={allStates[item.id].checked}
-                      noteOverride={allStates[item.id].note}
+                      checkedOverride={allStates[item.id]?.checked ?? true}
+                      noteOverride={allStates[item.id]?.note ?? ''}
                     />
                   ))}
                 </div>
@@ -162,8 +226,8 @@ export default function ManagerView({ scenario }: ManagerViewProps) {
                       key={item.id}
                       item={item}
                       readOnly
-                      checkedOverride={aiStates[item.id].checked}
-                      noteOverride={aiStates[item.id].note}
+                      checkedOverride={aiStates[item.id]?.checked ?? true}
+                      noteOverride={aiStates[item.id]?.note ?? ''}
                     />
                   ))}
                 </div>
